@@ -1,0 +1,14 @@
+{
+    "name": "eouna/pack-binary",
+    "description": "use to read or write binary files",
+    "keywords": ["Binary","binary"],
+    "type": "library",
+    "license": "MIT",
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=7.0"
+    },
+    "autoload": {
+        "psr-4": {"BinaryStream\\": "./src"}
+    }
+}
