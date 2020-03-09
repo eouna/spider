@@ -8,7 +8,7 @@ step1:configure the config of mysql in directory 'Src/Main/Config/'
 step2:change to root directory exec 'php start.php start ' then satrt the service
 
 
-step3:in the web browser visited IP:81 to set default crawl domain addr
+step3:in the web browser visited IP:81 to set default crawl domain addr otherwise don`t forget run 'npm install && npm run build' to enable this web service
 
 
 then you`ll see this：
