@@ -52,6 +52,7 @@ class ResourceCategory extends SqlBaseModel
 
     private static function updateNewAddMap(){
         $allCategoryData = (new RResourceCategory())->getAllCategoryInfo();
+        if(empty(self::$tagsMap)) self::initTagsMap();
         foreach ($allCategoryData as $key => $iResourceCategory){
             if($iResourceCategory instanceof  IResourceCategory){
                 if(empty($iResourceCategory->category_name)) continue;
@@ -88,7 +89,6 @@ class ResourceCategory extends SqlBaseModel
             $sqlStr = $insertString . $insertNameStr . $valueStr . $values;
             $resourceCategoryInstance->query->query($sqlStr);
             self::$newAddTags = null;
-            self::initTagsMap();
         }
         if(!empty(self::$tagsMap)){
             $insertString = 'UPDATE ' . $resourceCategoryInstance->table;
