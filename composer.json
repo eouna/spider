@@ -19,6 +19,7 @@
     "workerman/workerman": "v3.5.22",
     "workerman/channel": "^1.0",
     "ext-bcmath": "*",
-    "ext-posix": "*"
+    "ext-posix": "*",
+    "imangazaliev/didom": "^1.14"
   }
 }
