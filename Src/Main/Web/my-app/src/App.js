@@ -41,8 +41,7 @@ class App extends React.Component {
     };
 
     connectWS = () => {
-        //this.ws = new WebSocket("ws://119.28.23.252:8690/ws");
-        this.ws = new WebSocket("ws://47.100.103.97:8690/ws");
+        this.ws = new WebSocket("ws:///ws");
         this.ws.onmessage = this.recvMessage;
         this.ws.onclose = this.socketOnClose;
         this.showMessage("socket连接成功\r\n");

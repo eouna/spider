@@ -10,6 +10,7 @@ namespace Logic\Service\Link;
 
 
 use Logic\ConfigLoader;
+use Logic\UrlDealFactoryMemoryLeak;
 use Logic\UrlDealFactory;
 use Tools\Validator;
 
@@ -24,7 +25,7 @@ class DealLinkProvider
         $linkPackage->filter = $message['filter'] = 100 * 1024;
         $linkPackage->interval = 5;
         $linkPackage->type = [
-            UrlDealFactory::TAG_IMAGE => 1,
+            UrlDealFactoryMemoryLeak::TAG_IMAGE => 1,
         ];
         return $linkPackage;
     }
@@ -38,6 +39,12 @@ class DealLinkProvider
             'filter' => 'exists|number',
         ])->fail())
             return;
-        UrlDealFactory::make(ConfigLoader::IMG_SITE_GROUP)->config($jsonData)->go();
+        $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
+        dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
+        $urlDealFactory = new UrlDealFactory();
+        $urlDealFactory->config($jsonData)->go();
+        unset($urlDealFactory);
+        $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
+        dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
     }
 }

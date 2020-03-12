@@ -8,6 +8,8 @@
 
 namespace Logic;
 
+use DiDom\Document;
+use DiDom\Element;
 use GatewayWorker\Lib\Gateway;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
@@ -61,7 +63,7 @@ class UrlDealFactory
     private $isOpenNoLimit = false;
 
     /**
-     * @var Dom $dom
+     * @var Document $dom
      * */
     private $dom;
 
@@ -72,12 +74,12 @@ class UrlDealFactory
 
     private static $instance;
 
-    public function __construct($section_name)
+    public function __construct($section_name = ConfigLoader::IMG_SITE_GROUP)
     {
         require_once __DIR__ . "/../../../vendor/eouna/pack-binary/autoload.php";
         $this->config = ConfigLoader::configBySectionName($section_name);
         $this->client = new Client();
-        $this->dom = new Dom();
+        $this->dom = new Document();
         $this->site_info = parse_url($this->config['url']);
     }
 
@@ -149,12 +151,19 @@ class UrlDealFactory
         foreach ($url_list as $link) {
             list($request_url, $url_title) = $link;
             try{
-                $response = transToUTF8($this->client->get($request_url)->getBody()->getContents());
-                $dom = $this->dom->loadStr($response);
-                $siteTitle = getTitle($response);
+                $response = transToUTF8($this->client->get($request_url, ['verify' => false])->getBody()->getContents());
+                $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
+                dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
+                $dom = $this->dom->loadHtml($response);
+                $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
+                dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
+                $siteTitle = trim(getTitle($response));
                 !empty($this->siteName) ?: $this->siteName = mb_substr($siteTitle, (int)(strripos($siteTitle, '_')));
                 $this->dealLink($dom, $siteTitle);
                 $this->resourceDispatcher($dom, $siteTitle);
+                unset($dom);
+                $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
+                dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
             }catch (RequestException $exception){
                 dump_vars($exception->getMessage());
                 continue 1;
@@ -163,7 +172,7 @@ class UrlDealFactory
         unset($url_list);
     }
 
-    private function resourceDispatcher(Dom $dom, string $title){
+    private function resourceDispatcher(Document $dom, string $title){
         if(!empty($this->config))
 
             foreach ($this->config['type'] as $type => $typeValue){
@@ -180,25 +189,26 @@ class UrlDealFactory
     }
 
     /**
-     * @param Dom $dom
+     * @param Document $dom
      * @param string $siteTitle
-     * @throws ChildNotFoundException
-     * @throws NotLoadedException
      */
-    public function dealLink(Dom $dom, string $siteTitle)
+    public function dealLink(Document $dom, string $siteTitle)
     {
         try {
             $urlCollect = [];
             $linkModel = new SiteCollectModel($this->linkRootUrl);
-            $dom->find("a")->each(function (Dom\AbstractNode $node) use ($siteTitle, &$urlCollect, $linkModel) {
-                $linkTitle = $node->text();
+            $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
+            dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
+            $elementArr = $dom->find("a");
+            array_map(function (Element $node) use ($siteTitle, &$urlCollect, $linkModel) {
+                $linkTitle = trim($node->text());
+                if(empty($linkTitle)) return;
                 $linkInfo = new LinkInfo();
                 $linkInfo->linkTitle = empty($linkTitle) ? $siteTitle : $linkTitle;
-                $linkNodAttr = $node->getTag()->getAttribute("href");
-                $linkStr = $linkNodAttr['value'];
+                $linkStr = $node->getAttribute("href");
                 if(!isset($linkStr[0]) || $linkStr == 'javascript:;')
                     return;
-                $parseLink = parse_url($linkNodAttr['value']);
+                $parseLink = parse_url($linkStr);
                 if(!isset($parseLink['host']) || !isset($parseLink['path']) || $parseLink['host'] != $this->linkRootUrlDomain)
                     return;
                 $linkInfo->url = $parseLink['path'] . ($parseLink['query'] ?? '') . ($parseLink['fragment'] ?? '');
@@ -207,10 +217,12 @@ class UrlDealFactory
                 $urlCollect[$linkInfo->url] = md5($linkInfo->url);
                 $linkInfo->type = BaseModel::LINK_LIST;
                 $linkModel->saveLink($linkInfo);
-                //Gateway::sendToCurrentClient(CPlus::success(10002, 'Dealing Link：' . $linkInfo->url));
-            });
+                unset($linkInfo);
+            },$elementArr);
             unset($linkModel);
             dump_vars('解析完页面为：' . $this->config['url'] . ' 的链接........');
+            $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
+            dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
         } catch (StrictException $exception) {
             dump_vars($exception->getMessage());
         } catch (CurlException $exception) {
@@ -219,33 +231,33 @@ class UrlDealFactory
     }
 
     /**
-     * @param Dom $dom
+     * @param Document $dom
      * @param string $url_title
-     * @throws
-     * */
-    public function dealImage(Dom $dom, string $url_title)
+     */
+    public function dealImage(Document $dom, string $url_title)
     {
         try {
 
             dump_vars('开始处理URL：' . $this->linkRootUrl . ' 的图像资源........');
             $imageModel = new ImageLinkModel($this->linkRootUrl);
 
-            $dom->find('img')->each(function (Dom\AbstractNode $node) use ($url_title, $imageModel) {
+            $elementArr = $dom->find('img');
+            array_map(function (Element $node) use ($url_title, $imageModel) {
 
                 $linkInfo = new ResourceLinkInfo();
 
-                $source_path = $node->getTag()->getAttribute('src');
-                $sourceTitle = $node->getTag()->getAttribute('title');
-                if (empty($source_path) || !isset($source_path['value']) || isset($this->img_list[md5($source_path['value'])]) || strpos($source_path['value'], ';base64,'))
+                $source_path = $node->getAttribute('src');
+                $sourceTitle = $node->getAttribute('title');
+                if (empty($source_path) || !isset($source_path) || isset($this->img_list[md5($source_path)]) || strpos($source_path, ';base64,'))
                     return;
 
-                $linkInfo->linkTitle = empty($sourceTitle['value']) ? $url_title : $sourceTitle['value'];
+                $linkInfo->linkTitle = empty($sourceTitle) ? $url_title : $sourceTitle;
                 $linkInfo->type = BaseModel::IMG_LIST;
 
-                $source_path = isAbsolutePath($source_path['value']) ? $source_path['value'] : $this->site_info['scheme'] . "://" . $this->site_info['host'] . $source_path['value'];
+                $source_path = isAbsolutePath($source_path) ? $source_path : $this->site_info['scheme'] . "://" . $this->site_info['host'] . $source_path;
                 $linkInfo->url = $linkInfo->resourceUrl = $source_path;
                 if($imageModel->linkExists($linkInfo))
-                   return;
+                    return;
 
                 $response = Guzzle::getHeader($source_path);
                 $image_size = $response->getHeader("Content-Length");
@@ -273,7 +285,7 @@ class UrlDealFactory
 
                     $imageModel->saveLink($linkInfo);
                 }
-            });
+            },$elementArr);
             dump_vars('图片资源处理结束........');
             unset($dom);
         } catch (StrictException $exception) {
@@ -284,12 +296,11 @@ class UrlDealFactory
     }
 
     /**
-     * @param Dom $dom
+     * @param Document $dom
      * @param string $url_title
      * @param string $tag
-     * @throws
-     * */
-    public function dealSource(Dom $dom, string $url_title, $tag = 'audio')
+     */
+    public function dealSource(Document $dom, string $url_title, $tag = 'audio')
     {
         try {
             dump_vars("start deal source");
@@ -332,7 +343,7 @@ class UrlDealFactory
                     Gateway::sendToCurrentClient(CPlus::success(10002,
                         "\r\n正在拉取资源：" . $local_path[1] . ": " . floor($file_size[0] / 1024) . "Kb  名称：" . $this->source_list[$save_flag][1]
                     ));
-                    //FileHandler::save($source_path, $local_path);
+                    FileHandler::save($source_path, $local_path);
                 }
             });
             dump_vars("end deal image");
@@ -352,5 +363,7 @@ class UrlDealFactory
         $this->client = null;
         self::$instance = null;
         dump_vars('释放处理工厂实例！');
+        $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
+        dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
     }
 }

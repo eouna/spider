@@ -682,15 +682,18 @@ class CPlus {
                 $outputData[0] = date("m-d H:i:s") . "  " . $debug_trace[$track_depth - 1]['class']."::".$debug_trace[$track_depth - 1]['function']."：\033[m\033[1;38;5;208m".$debug_trace[$track_depth - 2]['line']."    \033[m\033[255;255;255mDEBUG=============> ".$message;
                 var_dump($outputData[0]);
             }
-            $channelPackageData = new ChannelPackageData();
-            $channelPackageData->addr = CChannelEventNameType::CLI_DUMPER_CHANNEL_ADDR;
-            $channelPackageData->port = CChannelEventNameType::CLI_DUMPER_CHANNEL_PORT;
-            $channelPackageData->msgData = $message;
-            $channelPackageData->channelBindEventName = CChannelEventNameType::CLI_DUMPER_CHANNEL;
-            !$outputData ?: ChannelManager::make($channelPackageData)->setSocketInfo($channelPackageData)->msgToChannel();
+            self::broadcastToOnlineClient($outputData);
         }
     }
 
+    public static function broadcastToOnlineClient($message){
+        $channelPackageData = new ChannelPackageData();
+        $channelPackageData->addr = CChannelEventNameType::CLI_DUMPER_CHANNEL_ADDR;
+        $channelPackageData->port = CChannelEventNameType::CLI_DUMPER_CHANNEL_PORT;
+        $channelPackageData->msgData = $message;
+        $channelPackageData->channelBindEventName = CChannelEventNameType::CLI_DUMPER_CHANNEL;
+        !$message ?: ChannelManager::make($channelPackageData)->setSocketInfo($channelPackageData)->msgToChannel();
+    }
     /**
      * get json last error
      * */
@@ -788,5 +791,16 @@ class CPlus {
         static $modDecorator = ['Byte', 'Kb', 'Mb', 'Gb', 'Tb'];
         while($size > 1024){$size = $size / 1024 + (($mod++) * 0);}
         return floor($size) . ($mod < count($modDecorator) ? $modDecorator[$mod] : '');
+    }
+
+    /**
+     * @param string $str
+     * @return int
+     */
+    public static function countStrLen(string $str){
+        preg_match_all("/[0-9]{1}/",$str,$arrNum);
+        preg_match_all("/[a-zA-Z]{1}/",$str,$arrAl);
+        preg_match_all("/([\x{4e00}-\x{9fa5}]){1}/u",$str,$arrCh);
+        return (int)(count($arrNum[0]) + count($arrAl[0]) + (count($arrCh[0]) * 2));
     }
 }

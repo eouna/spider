@@ -39,21 +39,21 @@ $task->onWorkerStart = function () {
  * @return string
  */
 $task->onMessage = function (TcpConnection $connection, string $message) {
-    dump_vars('处理WORKER ID为: ' . $connection->id . ' 的任务');
+    var_dump(date('m-d H:i:s') .' Start_link_loader ' . __LINE__ .': 处理WORKER ID为: ' . $connection->id . ' 的任务');
     $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
-    dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
+    var_dump(date('m-d H:i:s') ." Start_link_loader Deal before " . __LINE__ .":当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
     $jsonData = (array)json_decode($message);
     $recMsg = "ERROR";
     if (!empty($jsonData) && isset($jsonData['action'])) {
         switch ($jsonData['action']) {
             case 'doCollect':
-                $jsonData['url'] = (new LinkQueueModel())->setType(BaseModel::LINK_LIST)->popLink();
-                $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
-                dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
+                $linkQueueModel = new LinkQueueModel();
+                $jsonData['url'] = $linkQueueModel->setType(BaseModel::LINK_LIST)->popLink();
                 DealLinkProvider::doCollectTrigger($jsonData);
                 $sMemory = number_format((float)(memory_get_usage() / 1048576), 2);
-                dump_vars("当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
+                var_dump(date('m-d H:i:s') ." Start_link_loader Deal after " . __LINE__ .":当前进程ID：\033[36m". posix_getpid() ." \033[m\033[255;255;255m占用内存：" . $sMemory . 'Mb');
                 $recMsg = 'SUCCESS!';
+                unset($linkQueueModel);
                 break;
         }
     }

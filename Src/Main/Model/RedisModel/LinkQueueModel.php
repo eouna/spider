@@ -8,10 +8,6 @@
 
 namespace Model\RedisModel;
 
-use Model\BaseModel;
-use Model\Link\LinkInfo;
-use Tools\CPlus;
-
 class LinkQueueModel extends QueueBaseModel implements QueueModel
 {
 

@@ -8,6 +8,7 @@
 
 namespace Model\SQLModel\ResourceCategory;
 
+use Model\RedisModel\ResourceCategory\ResourceLock;
 use Model\SQLModel\SqlBaseModel;
 use \Model\RedisModel\ResourceCategory\ResourceCategory as RResourceCategory;
 use Tools\CPlus;
@@ -37,7 +38,7 @@ class ResourceCategory extends SqlBaseModel
     /**
      * @return array
      */
-    public static function initTagsMap(): array
+    public static function  initTagsMap(): array
     {
         if(empty(self::$tagsMap)){
             $sqlData = (new ResourceCategory())->getAllTags();
@@ -72,6 +73,7 @@ class ResourceCategory extends SqlBaseModel
         #处理新增数据
         $resourceCategoryInstance = new ResourceCategory();
         $iResourceCategoryInstance = new IResourceCategory();
+        self::$newAddTags = null;
         self::updateNewAddMap();
         if(!empty(self::$newAddTags)){
             $insertString = 'INSERT INTO ' . $resourceCategoryInstance->table;
@@ -80,15 +82,19 @@ class ResourceCategory extends SqlBaseModel
             $values = '';
             foreach (self::$newAddTags as $domain => $value){
                 foreach ($value as $categoryName => $data){
-                    $time = time();
-                    $curNum = self::$tagsMap[$domain][$categoryName]['cur_num'];
-                    $values .= "('{$categoryName}',{$time},{$time},'{$domain}',0,{$curNum}),";
+                    if(!ResourceLock::categoryWhetherInCache($categoryName, $domain)){
+                        $time = time();
+                        $curNum = self::$tagsMap[$domain][$categoryName]['cur_num'];
+                        $values .= "('{$categoryName}',{$time},{$time},'{$domain}',0,{$curNum}),";
+                        ResourceLock::insertCategoryInCache($categoryName, $domain);
+                    }
                 }
             }
-            $values = substr($values, 0, strlen($values) - 1);
-            $sqlStr = $insertString . $insertNameStr . $valueStr . $values;
-            $resourceCategoryInstance->query->query($sqlStr);
-            self::$newAddTags = null;
+            if(!empty($value)){
+                $values = substr($values, 0, strlen($values) - 1);
+                $sqlStr = $insertString . $insertNameStr . $valueStr . $values;
+                $resourceCategoryInstance->query->query($sqlStr);
+            }
         }
         if(!empty(self::$tagsMap)){
             $insertString = 'UPDATE ' . $resourceCategoryInstance->table;
@@ -111,11 +117,13 @@ WHERE id IN(';
 ";
                 }
             }
-            $ids = substr($ids, 0, strlen($ids) - 1) . ')';
-            $sqlStr = $insertString . $setCurNumValues . $whenIDThenCurNum . "END,
+            if(!empty($ids)){
+                $ids = substr($ids, 0, strlen($ids) - 1) . ')';
+                $sqlStr = $insertString . $setCurNumValues . $whenIDThenCurNum . "END,
 " .
-                $setUpdatedAtValues . $whenIDThenUpdatedAt . $where . $ids;
-            $resourceCategoryInstance->query->query($sqlStr);
+                    $setUpdatedAtValues . $whenIDThenUpdatedAt . $where . $ids;
+                $resourceCategoryInstance->query->query($sqlStr);
+            }
         }
     }
 }

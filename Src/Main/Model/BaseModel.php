@@ -137,7 +137,9 @@ class BaseModel
             CPlus::redisHset($passLinkTable, $linkInfo->url, $linkInfo->linkTitle);
             CPlus::redisIncr($this->rootUrl . $this->lindCountSuffix);
             $linkInfo->url = $this->nativeUrl . $linkInfo->url;
-            (new ResourceQueueModel())->setType($linkInfo->type)->pushLinkQueue($linkInfo);
+            $resourceQueueModel = (new ResourceQueueModel());
+            $resourceQueueModel->setType($linkInfo->type)->pushLinkQueue($linkInfo);
+            unset($resourceQueueModel);
             return true;
         }
         return false;
